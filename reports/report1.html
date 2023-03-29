@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Airline Automatiton Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>Airline Automatiton Report</h1>
+    <p>Report generated on 28-Mar-2023 at 16:48:09 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>C:\Program Files\Java\jdk-19</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "pytest": "7.2.2"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.19045-SP0</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"anyio": "3.6.2", "html": "3.2.0", "metadata": "2.0.4"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.11.1</td></tr></table>
+    <h2>Summary</h2>
+    <p>1 tests ran in 8.60 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">0 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">1 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">testCases/test_login.py::TestSearchFlight::testHomePageTitle</td>
+          <td class="col-duration">7.13</td>
+          <td class="col-links"><a class="url" href="https://www.jetblue.com/" target="_blank">URL</a> </td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><div><img> src="testCases/test_login.py_TestSearchFlight_testHomePageTitle.png" alt="screenshot" style="width:300px;height=200px"onclick="window.open(this.src)" align="right"/></div></div>
+            <div class="log">self = &lt;base.base_driver.BaseDriver testMethod=runTest&gt;<br/>assert_method = &lt;bound method TestCase.assertEqual of &lt;base.base_driver.BaseDriver testMethod=runTest&gt;&gt;<br/>arguments = (&#x27;JetBlue | Airline Tickets, Flights &amp; Airfare: Book Direct - Official Site&#x27;, &#x27;JetBlue | Airline Tickets, Flights &amp; Airfare: Book Direct - Official Site123&#x27;)<br/>keywords = {}<br/><br/>    def soft_assert(self, assert_method, *arguments, **keywords):<br/>    	&quot;&quot;&quot;<br/>    	Asserts the specified comparison<br/>    	and stores any raised AssertionErrors stack traces<br/>    	for later reporting.<br/>    <br/>    	@param assert_method: the method definition for the desired assert call, ex: self.assert<br/>    	@see: assert_all<br/>    	&quot;&quot;&quot;<br/>    	try:<br/>&gt;   		assert_method(*arguments, **keywords)<br/><br/>..\..\..\AppData\Local\Programs\Python\Python311\Lib\site-packages\softest\case.py:62: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;base.base_driver.BaseDriver testMethod=runTest&gt;<br/>first = &#x27;JetBlue | Airline Tickets, Flights &amp; Airfare: Book Direct - Official Site&#x27;<br/>second = &#x27;JetBlue | Airline Tickets, Flights &amp; Airfare: Book Direct - Official Site123&#x27;<br/>msg = None<br/><br/>    def assertEqual(self, first, second, msg=None):<br/>        &quot;&quot;&quot;Fail if the two objects are unequal as determined by the &#x27;==&#x27;<br/>           operator.<br/>        &quot;&quot;&quot;<br/>        assertion_func = self._getAssertEqualityFunc(first, second)<br/>&gt;       assertion_func(first, second, msg=msg)<br/><br/>..\..\..\AppData\Local\Programs\Python\Python311\Lib\unittest\case.py:873: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;base.base_driver.BaseDriver testMethod=runTest&gt;<br/>first = &#x27;JetBlue | Airline Tickets, Flights &amp; Airfare: Book Direct - Official Site&#x27;<br/>second = &#x27;JetBlue | Airline Tickets, Flights &amp; Airfare: Book Direct - Official Site123&#x27;<br/>msg = None<br/><br/>    def assertMultiLineEqual(self, first, second, msg=None):<br/>        &quot;&quot;&quot;Assert that two multi-line strings are equal.&quot;&quot;&quot;<br/>        self.assertIsInstance(first, str, &#x27;First argument is not a string&#x27;)<br/>        self.assertIsInstance(second, str, &#x27;Second argument is not a string&#x27;)<br/>    <br/>        if first != second:<br/>            # don&#x27;t use difflib if the strings are too long<br/>            if (len(first) &gt; self._diffThreshold or<br/>                len(second) &gt; self._diffThreshold):<br/>                self._baseAssertEqual(first, second, msg)<br/>            firstlines = first.splitlines(keepends=True)<br/>            secondlines = second.splitlines(keepends=True)<br/>            if len(firstlines) == 1 and first.strip(&#x27;\r\n&#x27;) == first:<br/>                firstlines = [first + &#x27;\n&#x27;]<br/>                secondlines = [second + &#x27;\n&#x27;]<br/>            standardMsg = &#x27;%s != %s&#x27; % _common_shorten_repr(first, second)<br/>            diff = &#x27;\n&#x27; + &#x27;&#x27;.join(difflib.ndiff(firstlines, secondlines))<br/>            standardMsg = self._truncateMessage(standardMsg, diff)<br/>&gt;           self.fail(self._formatMessage(msg, standardMsg))<br/><br/>..\..\..\AppData\Local\Programs\Python\Python311\Lib\unittest\case.py:1253: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;base.base_driver.BaseDriver testMethod=runTest&gt;<br/>msg = &quot;&#x27;JetBlue | Airline Tickets, Flights &amp; Airfare: Book Direct - Official Site&#x27; != &#x27;JetBlue | Airline Tickets, Flights &amp; ...fare: Book Direct - Official Site123\n?                                                                          +++\n&quot;<br/><br/>    def fail(self, msg=None):<br/>        &quot;&quot;&quot;Fail immediately, with the given message.&quot;&quot;&quot;<br/>&gt;       raise self.failureException(msg)<br/><span class="error">E       AssertionError: &#x27;JetBlue | Airline Tickets, Flights &amp; Airfare: Book Direct - Official Site&#x27; != &#x27;JetBlue | Airline Tickets, Flights &amp; Airfare: Book Direct - Official Site123&#x27;</span><br/><span class="error">E       - JetBlue | Airline Tickets, Flights &amp; Airfare: Book Direct - Official Site</span><br/><span class="error">E       + JetBlue | Airline Tickets, Flights &amp; Airfare: Book Direct - Official Site123</span><br/><span class="error">E       ?                                                                          +++</span><br/><br/>..\..\..\AppData\Local\Programs\Python\Python311\Lib\unittest\case.py:703: AssertionError<br/><br/>During handling of the above exception, another exception occurred:<br/><br/>self = &lt;testCases.test_login.TestSearchFlight object at 0x0000027C2C7BE510&gt;<br/>setup = &lt;selenium.webdriver.chrome.webdriver.WebDriver (session=&quot;3c7893e27da37192f3a881cfd2c67e68&quot;)&gt;<br/><br/>    def testHomePageTitle(self, setup):<br/>        self.log.info(&quot;Test_001_Home_Page&quot;)<br/>        self.log.info(&quot;Verifying Home Page Title&quot;)<br/>        # open home_page<br/>        self.driver = setup<br/>        self.driver.get(self.baseURL)<br/>        time.sleep(2)<br/>        hp = HomePage(self.driver)<br/>        hp.accept_alert()<br/>    <br/>        # verify current title with expected:<br/>        bd = BaseDriver(self.driver)<br/>&gt;       bd.verify_title(self.expected_title_home_page, &quot;test_homePageTitle&quot;)<br/><br/>testCases\test_login.py:37: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/>base\base_driver.py:45: in verify_title<br/>    self.soft_assert(self.assertEqual, self.getCurrentTitle(), expected_title)<br/>..\..\..\AppData\Local\Programs\Python\Python311\Lib\site-packages\softest\case.py:64: in soft_assert<br/>    self.__ASSERTION_LOGGER.process_and_store(ae)<br/>..\..\..\AppData\Local\Programs\Python\Python311\Lib\site-packages\softest\support.py:42: in process_and_store<br/>    frames, target_index = get_stack_and_first_test_class_frame_index()<br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>    def get_stack_and_first_test_class_frame_index() -&gt; Tuple[list, int]:<br/>    	&quot;&quot;&quot;<br/>    	Extracts the stack,<br/>    	then searches it<br/>    	for the first frame of the test class.<br/>    <br/>    	@return: [0] the extracted stack<br/>    		[1] the frame index<br/>    	&quot;&quot;&quot;<br/>    	frames = traceback.extract_stack()<br/>    	target_index = -1;<br/>    	frame_file_path = &#x27;&#x27;<br/>    <br/>    	while(not frame_file_path.endswith(UNIT_TEST_CASE_MODULE_FILE_PATH)):<br/>    		target_index -= 1;<br/>&gt;   		frame_file_path = frames[target_index].filename;<br/><span class="error">E     IndexError: list index out of range</span><br/><br/>..\..\..\AppData\Local\Programs\Python\Python311\Lib\site-packages\softest\support.py:24: IndexError<br/></div></td></tr></tbody></table></body></html>
