@@ -27,7 +27,7 @@ class TestSearchFlight():
         self.log.info("Verifying Home Page Title")
         # open home_page
         self.driver = setup
-        self.driver.get(self.baseURL)
+        #self.driver.get(self.baseURL)
         time.sleep(2)
         hp = HomePage(self.driver)
         hp.accept_alert()

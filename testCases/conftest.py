@@ -21,7 +21,7 @@ from utilities.readProperties import ReadConfig
 # there are also autouse=True to aply automatically to every TC
 
 @pytest.fixture(scope="class")
-def setup(request, browser):
+def setup(request, browser, url):
     global driver
     if browser == "chrome":
         driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
@@ -33,7 +33,7 @@ def setup(request, browser):
     #     driver = webdriver.Opera(executable_path=OperaDriverManager().install())
     else:
         print("Provide valid browser")
-    # driver.get(ReadConfig.getApplicationURL())
+    driver.get(url)
     driver.maximize_window()
     request.cls.driver = driver
     yield driver
@@ -41,16 +41,16 @@ def setup(request, browser):
 
 def pytest_addoption(parser):
     parser.addoption("--browser")
-    #parser.addoption("--url")
+    parser.addoption("--url")
 
 # second. methods for each browser:
 @pytest.fixture(scope="class", autouse=True)
 def browser(request):  # return the browser value to setup method
     return request.config.getoption("--browser")
 
-# @pytest.fixture(scope="class", autouse=True)
-# def url(request):  # return the browser value to setup method
-#     return request.config.getoption("--url")
+@pytest.fixture(scope="class", autouse=True)
+def url(request):  # return the browser value to setup method
+    return request.config.getoption("--url")
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item):
